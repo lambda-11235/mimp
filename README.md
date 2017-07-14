@@ -47,7 +47,7 @@ and = compare , { '&' , compare } ;
 compare = arith , '<' , arith
         | arith , '=' , arith
         | arith , '>' , arith
-        | '(' , cond , ')' ;
+        | [ '~' ] , '(' , cond , ')' ;
 
 value = num | ref | label ;
 ref = '[' , arith , ']' ;

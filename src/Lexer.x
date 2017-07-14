@@ -31,6 +31,7 @@ tokens :-
 
   "|"                                   { \p s -> lexOut p LOr }
   "&"                                   { \p s -> lexOut p LAnd }
+  "~"                                   { \p s -> lexOut p LNeg }
   "<"                                   { \p s -> lexOut p LLT }
   ">"                                   { \p s -> lexOut p LGT }
 
@@ -55,6 +56,7 @@ data Token = LColon
            | LDiv
            | LOr
            | LAnd
+           | LNeg
            | LLT
            | LGT
            | LLSBracket

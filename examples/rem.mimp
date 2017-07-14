@@ -1,0 +1,9 @@
+
+# Calculates the reminder of dividing two numbers.
+
+read [0]
+read [1]
+
+[2] = [0] - [1] * ([0]/[1])
+
+print [2]

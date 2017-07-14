@@ -93,7 +93,13 @@ andP = do c <- comparison
           cs <- many (match LAnd *> comparison)
           return (foldl And c cs)
 
-comparison = (match LLParen *> conditional <* match LRParen) <|> arithComp
+comparison = opNegParen <|> arithComp
+
+opNegParen = do opNeg <- option id (match LNeg >> return Not)
+                match LLParen
+                cond <- conditional
+                match LRParen
+                return (opNeg cond)
 
 arithComp = do x <- arith
                (c, y) <- ((match LLT *> fmap ((,) CLT) arith)

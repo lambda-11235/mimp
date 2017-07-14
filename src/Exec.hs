@@ -58,6 +58,7 @@ evalArith (Div x y) = div <$> (evalArith x) <*> (evalArith y)
 evalCond :: Cond -> PState Bool
 evalCond (And x y) = (&&) <$> (evalCond x) <*> (evalCond y)
 evalCond (Or x y) = (||) <$> (evalCond x) <*> (evalCond y)
+evalCond (Not x) = not <$> (evalCond x)
 evalCond (CLT x y) = do x' <- evalArith x
                         y' <- evalArith y
                         return (x' < y')

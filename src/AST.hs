@@ -18,6 +18,7 @@ data Statement = Label String
 
 data Cond = And Cond Cond
           | Or Cond Cond
+          | Not Cond
           | CLT Arith Arith
           | CEQ Arith Arith
           | CGT Arith Arith
