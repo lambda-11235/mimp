@@ -1,0 +1,22 @@
+
+# An example of memory usage.
+
+# First we initialize all cells between 0 and 10 with double their index.
+[0] = 10
+
+rec:
+
+[[0]] = 2*[0]
+[0] = [0] - 1
+
+jif ([0] > 0) rec
+
+
+# We then print the values of each cell.
+print_loop:
+
+print [[0]]
+
+[0] = [0] + 1
+
+jif ([0] < 10 | [0] = 10) print_loop

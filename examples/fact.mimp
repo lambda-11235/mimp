@@ -1,0 +1,17 @@
+
+# A factorial algorithm in mimp.
+
+# The value to take the factorial of is stored in [0] and the answer in [1].
+read [0]
+[1] = 1
+
+rec:
+jif ([0] = 0) end
+
+[1] = [0] * [1]
+[0] = [0] - 1
+
+jmp rec
+end:
+
+print [1]
