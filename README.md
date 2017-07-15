@@ -22,6 +22,16 @@ It is important to note that the program instructions and array data structure
 are stored separately. Thus, MImp does **not** emulate a von Neumann assembly
 language.
 
+## Example Execution
+
+```
+> stack build                                                                                                                                1 ↵
+...
+> stack exec mimp examples/fact.mimp
+6
+720
+```
+
 ## Syntax
 
 Comments begin with `#` and extend to the end of the line. The EBNF grammar for
@@ -58,3 +68,8 @@ digit = ? [0-9] ? ;
 label = char , { char | digit } ;
 char = ? [a-zA-Z_] ? ;
 ```
+
+## Semantics
+
+MImp's semantics have been formalized in Coq. These formalizations can be found
+in the coq/ directory.

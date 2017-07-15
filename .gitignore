@@ -1,1 +1,4 @@
 .stack-work/
+coq/*.glob
+coq/*.vo
+coq/.*.vo.aux
