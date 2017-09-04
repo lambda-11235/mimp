@@ -3,105 +3,102 @@ module Exec where
 
 import AST
 
+import Data.IORef
 import qualified Data.Map as M
-import Control.Monad.State
+import qualified Data.Vector.Mutable as V
 
 
-data RTState = RTState { getMemory :: [Nat]
-                       , getLabelAddrs :: M.Map String Int }
-                       deriving (Eq, Show)
+data RTState = RTState { getMemory :: IORef (V.IOVector Nat)
+                       , getLabelAddrs :: IORef (M.Map String Int) }
 
-emptyRTState :: RTState
-emptyRTState = RTState [] M.empty
+emptyRTState :: IO RTState
+emptyRTState = do vRef <- V.new 0 >>= newIORef
+                  mRef <- newIORef M.empty
+                  return (RTState vRef mRef)
 
-overMemory :: ([Nat] -> [Nat]) -> RTState -> RTState
-overMemory f (RTState mem lbls) = RTState (f mem) lbls
+deref :: Int -> RTState -> IO Nat
+deref n (RTState vRef _) =
+  do v <- readIORef vRef
+     if n < V.length v then V.read v n else return 0
 
-overLblAddrs :: (M.Map String Int -> M.Map String Int) -> RTState -> RTState
-overLblAddrs f (RTState mem lbls) = RTState mem (f lbls)
-
-deref :: Int -> RTState -> Nat
-deref n rts = deref' n (getMemory rts)
-  where
-    deref' _ [] = 0
-    deref' n (x:xs) = if n == 0 then x else deref' (n - 1) xs
-
-setRef :: Int -> Nat -> RTState -> RTState
-setRef n x = overMemory (setRef' n x)
-  where
-    setRef' n x [] = if n <= 0 then [x] else 0 : (setRef' (n - 1) x [])
-    setRef' n x (y:ys) = if n <= 0 then x:ys else y : (setRef' (n - 1) x ys)
+setRef :: Int -> Nat -> RTState -> IO ()
+setRef n x (RTState vRef _) =
+  do v <- readIORef vRef
+     let l = V.length v
+     if n < l then V.write v n x else
+       do v' <- V.grow v (n - l + 1)
+          mapM_ (\idx -> V.write v' idx 0) [l..n]
+          V.write v' n x
+          writeIORef vRef v'
 
 
-type PState = StateT RTState IO
-
-
-evalValue :: Value -> PState Nat
-evalValue (Num n) = return n
-evalValue (Ref ptr) = do ptr' <- evalArith ptr
-                         rts <- get
-                         return (deref (fromIntegral ptr') rts)
-evalValue (Location lbl) =
-  do s <- get
-     case M.lookup lbl (getLabelAddrs s) of
+evalValue :: Value -> RTState -> IO Nat
+evalValue (Num n) _ = return n
+evalValue (Ref ptr) rts =
+  do ptr' <- evalArith ptr rts
+     deref (fromIntegral ptr') rts
+evalValue (Location lbl) (RTState _ mRef) =
+  do m <- readIORef mRef
+     case M.lookup lbl m of
        Nothing -> fail $ "Unbound label " ++ lbl
        Just loc -> return (fromIntegral loc)
 
 
-evalArith :: Arith -> PState Nat
-evalArith (Val v) = evalValue v
-evalArith (Add x y) = (+) <$> (evalArith x) <*> (evalArith y)
-evalArith (Sub x y) = (-) <$> (evalArith x) <*> (evalArith y)
-evalArith (Mult x y) = (*) <$> (evalArith x) <*> (evalArith y)
-evalArith (Div x y) = div <$> (evalArith x) <*> (evalArith y)
+evalArith :: Arith -> RTState -> IO Nat
+evalArith (Val v) rts = evalValue v rts
+evalArith (Add x y) rts = (+) <$> (evalArith x rts) <*> (evalArith y rts)
+evalArith (Sub x y) rts = (-) <$> (evalArith x rts) <*> (evalArith y rts)
+evalArith (Mult x y) rts = (*) <$> (evalArith x rts) <*> (evalArith y rts)
+evalArith (Div x y) rts = div <$> (evalArith x rts) <*> (evalArith y rts)
 
-evalCond :: Cond -> PState Bool
-evalCond (And x y) = (&&) <$> (evalCond x) <*> (evalCond y)
-evalCond (Or x y) = (||) <$> (evalCond x) <*> (evalCond y)
-evalCond (Not x) = not <$> (evalCond x)
-evalCond (CLT x y) = do x' <- evalArith x
-                        y' <- evalArith y
-                        return (x' < y')
-evalCond (CEQ x y) = do x' <- evalArith x
-                        y' <- evalArith y
-                        return (x' == y')
-evalCond (CGT x y) = do x' <- evalArith x
-                        y' <- evalArith y
-                        return (x' > y')
+evalCond :: Cond -> RTState -> IO Bool
+evalCond (And x y) rts = (&&) <$> (evalCond x rts) <*> (evalCond y rts)
+evalCond (Or x y) rts = (||) <$> (evalCond x rts) <*> (evalCond y rts)
+evalCond (Not x) rts = not <$> (evalCond x rts)
+evalCond (CLT x y) rts = do x' <- evalArith x rts
+                            y' <- evalArith y rts
+                            return (x' < y')
+evalCond (CEQ x y) rts = do x' <- evalArith x rts
+                            y' <- evalArith y rts
+                            return (x' == y')
+evalCond (CGT x y) rts = do x' <- evalArith x rts
+                            y' <- evalArith y rts
+                            return (x' > y')
 
 
-exec' :: Int -> Program -> PState ()
-exec' pos prog = if pos < length prog then execC (prog !! pos) else return ()
+exec' :: Int -> Program -> RTState -> IO ()
+exec' pos prog rts =
+  if pos < length prog then execC (prog !! pos) else return ()
   where
-    execC (Label _) = exec' (pos + 1) prog
+    execC (Label _) = exec' (pos + 1) prog rts
     execC (Assign ptr expr) =
-      do ptr' <- evalArith ptr
-         x <- evalArith expr
-         modify (setRef (fromIntegral ptr') x)
-         exec' (pos + 1) prog
+      do ptr' <- evalArith ptr rts
+         x <- evalArith expr rts
+         setRef (fromIntegral ptr') x rts
+         exec' (pos + 1) prog rts
     execC (JMP loc) =
-      do pos' <- evalValue loc
-         exec' (fromIntegral pos') prog
+      do pos' <- evalValue loc rts
+         exec' (fromIntegral pos') prog rts
     execC (JIF cond loc) =
-      do b <- evalCond cond
-         pos' <- evalValue loc
-         if b then exec' (fromIntegral pos') prog else exec' (pos + 1) prog
+      do b <- evalCond cond rts
+         pos' <- evalValue loc rts
+         if b then exec' (fromIntegral pos') prog rts else exec' (pos + 1) prog rts
     execC (Read ptr) =
-      do ptr' <- evalArith ptr
-         x <- lift (readLn :: IO Int)
+      do ptr' <- evalArith ptr rts
+         x <- readLn :: IO Int
          if x < 0 then fail $ "Entered a negative number: " ++ show x else
-           do modify (setRef (fromIntegral ptr') (fromIntegral x))
-              exec' (pos + 1) prog
+           do setRef (fromIntegral ptr') (fromIntegral x) rts
+              exec' (pos + 1) prog rts
     execC (Print x) =
-      do x' <- evalValue x
-         lift $ print x'
-         exec' (pos + 1) prog
+      do x' <- evalValue x rts
+         print x'
+         exec' (pos + 1) prog rts
 
 
 exec :: Program -> IO ()
-exec prog = let rts = RTState [] (buildLabelAddrs prog M.empty 0) in
-              do runStateT (exec' 0 prog) rts
-                 return ()
+exec prog = do rts <- emptyRTState
+               writeIORef (getLabelAddrs rts) (buildLabelAddrs prog M.empty 0)
+               exec' 0 prog rts
 
 buildLabelAddrs :: Program -> M.Map String Int -> Int -> M.Map String Int
 buildLabelAddrs [] lbls _ = lbls
