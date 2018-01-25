@@ -1,32 +1,47 @@
 
 # An example of a function.
 
-# Here we pass the return site address 0 and the argument in address 1. The
-# return value is then stored in address 1.
-jmp end_double
-double:
-  [1] = 2*[1]
-  jmp [0]
-end_double:
+# jmp to start
+jmp start
 
+
+# Here we pass the return site address 0 and the argument in address 1. The
+# return value is then stored in address 1. Address 2 is clobbered.
+fact:
+  [2] = [1]
+  [1] = 1
+
+  fact_rec:
+    jif ([2] = 0) fact_end
+
+    [1] = [2] * [1]
+    [2] = [2] - 1
+
+    jmp fact_rec
+  fact_end:
+
+  jmp [0]
+
+
+start:
 
 # Examples of function calls.
 [0] = ret1
-[1] = 1
-jmp double
+[1] = 3
+jmp fact
 ret1:
 print [1]
 
 
+# Can't use [2] because it is clobbered.
+[3] = 1
+
+rec:
 [0] = ret2
-[1] = 2
-jmp double
+[1] = [3]
+jmp fact
+
 ret2:
 print [1]
-
-
-[0] = ret3
-[1] = 3
-jmp double
-ret3:
-print [1]
+[3] = [3] + 1
+jif ([3] < 11) rec
