@@ -1,0 +1,38 @@
+
+# Prints n prime numbers.
+
+# Number of primes we want
+read [0]
+# Number of primes we have
+[1] = 0
+# Outer iterator
+[2] = 2
+
+# Inner iterator at [3], array starts at [6]
+# [4] and [5] are intermediate values.
+
+rec:
+
+[3] = 0
+rec2:
+    # Try to find a prime number that divides [2]
+    jif ([3] + 1 > [1]) prime
+    [4] = [6 + [3]]
+    
+    # Test for factor
+    [5] = ([2] / [4])*[4]
+    jif ([5] = [2]) break
+
+    [3] = [3] + 1
+    jmp rec2
+
+    prime:
+    print [2]
+    [6 + [1]] = [2]
+    [1] = [1] + 1
+
+    break:
+
+[2] = [2] + 1
+
+jif ([1] < [0]) rec
