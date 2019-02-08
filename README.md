@@ -72,4 +72,33 @@ char = ? [a-zA-Z_] ? ;
 ## Semantics
 
 MImp's semantics have been formalized in Coq. These formalizations can be found
-in the coq/ directory.
+in the coq/ directory. Note that this formalism doesn't include the operations
+`|`, `=`, `>`, `*`, and `/`. These operations expand as such
+
+```
+a | b => ~((~a) & (~b))
+
+a = b => ~(a<b) & ~(a>b)
+
+a > b => b < a
+
+x * y =>
+res = 0
+tmp = y
+rec:
+    jif (tmp = 0) stop
+    res = res + x
+    tmp = tmp - 1
+    jmp rec
+stop:
+
+# This should be floor(x/y), let me know if I mess something up.
+x / y =>
+res = 0
+tmp = x
+rec:
+    jif (tmp < y) stop
+    res = res + 1
+    tmp = tmp - y
+    jmp rec
+stop:
